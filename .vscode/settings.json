@@ -1,0 +1,15 @@
+{
+    "typescript.tsdk": "node_modules\\typescript\\lib",
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "Secret Santa",
+            "database": "secret-santa",
+            "username": "secret-santa-admin",
+            "password": "secretsantapassword"
+        }
+    ]
+}
