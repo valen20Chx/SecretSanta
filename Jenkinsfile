@@ -17,7 +17,7 @@ pipeline {
         stage("deploy") {
             steps {
                 echo 'Deploying...'
-                bat 'npm run fstart'
+                // bat 'npm run fstart'
             }
         }
     }
