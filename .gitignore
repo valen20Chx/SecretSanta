@@ -1,2 +1,1 @@
-bin/*.js #ignore compiled files
 node_modules/
