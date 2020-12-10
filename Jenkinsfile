@@ -5,8 +5,8 @@ pipeline {
         stage("build") {
             steps {
                 echo 'Building...'
-                sh 'npm install'
-                sh 'npm run tsc'
+                bat 'npm install'
+                bat 'npm run tsc'
             }
         }
         stage("test") {
@@ -17,7 +17,7 @@ pipeline {
         stage("deploy") {
             steps {
                 echo 'Deploying...'
-                sh 'npm fstart'
+                bat 'npm fstart'
             }
         }
     }
