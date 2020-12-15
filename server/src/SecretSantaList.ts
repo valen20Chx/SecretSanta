@@ -1,3 +1,5 @@
+import {List, Participant} from './Interfaces';
+
 export class SecretSantaList<T> {
     participants: Array<T>;
     StoRassociations: Map<T, T>;

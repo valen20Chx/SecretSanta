@@ -2,7 +2,13 @@ import pg from 'pg';
 import fs from 'fs';
 import {Participant, List} from './Interfaces';
 
-const dbFilesDirPath = __dirname + '/db/';
+const dbFilesDirPath = './db/';
+
+// interface DB_Error {
+//     err: any | null,
+//     msg: string,
+//     code: number
+// };
 
 export class Db {
     config: Object;
@@ -44,13 +50,27 @@ export class Db {
     getList(id: number) {
         const query1 = fs.readFileSync(dbFilesDirPath + 'GET_LIST.pgsql').toString();
         const query2 = fs.readFileSync(dbFilesDirPath + 'GET_LIST_PARTICIPANTS.pgsql').toString();
+        const query3 = fs.readFileSync(dbFilesDirPath + 'GET_LIST_ASSOCIATIONS.pgsql').toString();
         return new Promise<List>((resolve, reject) => {
-            Promise.all([this.client.query(query1, [id]), this.client.query(query2, [id])]).then(results => {
-                let list_data : List = results[0].rows[0];
-                list_data.participants = results[1].rows;
-                resolve(list_data);
-            }).catch(errors => {
-                reject(errors);
+            this.client.query(query1, [id]).then(q1Res => {
+                if(q1Res.rowCount == 0) { // List Not Existant
+                    reject({
+                        msg: 'list is innexistant',
+                        code: 400
+                    });
+                } else {
+                    Promise.all([this.client.query(query2, [id]), this.client.query(query3, [id])]).then(results => {
+                        let list_data : List = q1Res.rows[0];
+                        list_data.participants = results[0].rows;
+                        list_data.associations = results[1].rows;
+                        resolve(list_data);
+                    }).catch(errors => {
+                        reject({
+                            err: errors,
+                            code: 500
+                        });
+                    });
+                }
             });
         });
     }
@@ -61,7 +81,10 @@ export class Db {
             this.client.query(query, [max_participants]).then(result => {
                 resolve(result.rows[0]);
             }).catch(errors => {
-                reject(errors);
+                reject({
+                    err: errors,
+                    code: 500
+                });
             });
         });
     }
@@ -72,7 +95,10 @@ export class Db {
             this.client.query(query, [listId, name, email]).then(result => {
                 resolve(result.rows[0]);
             }).catch(errors => {
-                reject(errors);
+                reject({
+                    err: errors,
+                    code: 500
+                });
             });
         });
     }
@@ -83,18 +109,60 @@ export class Db {
             this.getList(listId).then(result => {
                 if(result.participants.length >= result.max_participants) {
                     reject({
-                        msg: 'Participants limit reached'
+                        msg: 'Participants limit reached',
+                        code: 500
                     });
                 } else {
                     const query = fs.readFileSync(dbFilesDirPath + 'INSERT_LIST_CREATOR.pgsql').toString();
                     this.client.query(query, [listId, name, email]).then(result => {
                         resolve(result.rows[0]);
                     }).catch(errors => {
-                        reject(errors);
+                        reject({
+                            err: errors,
+                            code: 500
+                        });
                     });
                 }
             }).catch(err => {
-                reject(err);
+                reject({
+                    err: err,
+                    code: 500
+                });
+            });
+        });
+    }
+
+    insertAssociation(gifter_id: number, receiver_id: number) {
+        return new Promise((resolve, reject) => {
+            const query = fs.readFileSync(dbFilesDirPath + 'INSERT_ASSOCIATION.pgsql').toString();
+            this.client.query(query, [gifter_id, receiver_id]).then(result =>{
+                resolve(null);
+            }).catch(err => {
+                reject({
+                    err: err,
+                    code: 500
+                });
+            });
+        });
+    }
+
+    getAssociations(listId: number) {
+        return new Promise((resolve, reject) => {
+            const query = fs.readFileSync(dbFilesDirPath + 'GET_LIST_ASSOCIATIONS.pgsql').toString();
+            this.client.query(query, [listId]).then(result => {
+                if(result.rowCount == 0) {
+                    reject({
+                        msg: 'No associations found',
+                        code: 400
+                    });
+                } else {
+                    resolve(result.rows);
+                }
+            }).catch(err => {
+                reject({
+                    err: err,
+                    code: 500
+                });
             });
         });
     }

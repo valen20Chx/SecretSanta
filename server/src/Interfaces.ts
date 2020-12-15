@@ -12,5 +12,13 @@ export interface List {
     date_created: string | Date,
     scrambled: boolean,
     max_participants: number,
-    participants: Array<Participant>
+    participants: Array<Participant>,
+    associations: Array<Association>
+}
+
+export interface Association {
+    id: number,
+    gifter_id: number,
+    receiver_id: number,
+    date_created: Date | string
 }
