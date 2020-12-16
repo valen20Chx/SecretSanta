@@ -113,7 +113,7 @@ export class Db {
                         code: 500
                     });
                 } else {
-                    const query = fs.readFileSync(dbFilesDirPath + 'INSERT_LIST_CREATOR.pgsql').toString();
+                    const query = fs.readFileSync(dbFilesDirPath + 'INSERT_LIST_PARTICIPANT.pgsql').toString();
                     this.client.query(query, [listId, name, email]).then(result => {
                         resolve(result.rows[0]);
                     }).catch(errors => {
@@ -158,6 +158,34 @@ export class Db {
                 } else {
                     resolve(result.rows);
                 }
+            }).catch(err => {
+                reject({
+                    err: err,
+                    code: 500
+                });
+            });
+        });
+    }
+
+    deleteListParticipant(pId: number) {
+        return new Promise((resolve, reject) => {
+            const query = fs.readFileSync(dbFilesDirPath + 'REMOVE_LIST_PARTICIPANT.pgsql').toString();
+            this.client.query(query, [pId]).then(result => {
+                resolve(result);
+            }).catch(err => {
+                reject({
+                    err: err,
+                    code: 500
+                });
+            });
+        });
+    }
+
+    updateParticipant(id: number, name: string, email: string) {
+        return new Promise((resolve, reject) => {
+            const query = fs.readFileSync(dbFilesDirPath + 'UPDATE_LIST_PARTIOCIPANT.pgsql').toString();
+            this.client.query(query, [id, name, email]).then(result => {
+                resolve(result);
             }).catch(err => {
                 reject({
                     err: err,

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import {IList} from '../../shared/Interfaces';
+import { IList } from '../../shared/Interfaces';
 
 // Bootstrap
 import { Modal, Button, Form, FormControl } from 'react-bootstrap';
+import { listStore } from '../../shared/stores';
 
 interface Props {
-    infos :IList
+    infos: IList
 }
 
 
@@ -17,9 +18,10 @@ const ListInfo: React.FC<Props> = (props: Props) => {
         name: '',
         email: ''
     });
+    const store = listStore();
 
     const showAddParticipantModal = () => {
-        if(props.infos.participants.length >= props.infos.max_participants) {
+        if (props.infos.participants.length >= props.infos.max_participants) {
             alert('Participant limit reached');
         } else {
             setShowModal(!showModal);
@@ -32,21 +34,20 @@ const ListInfo: React.FC<Props> = (props: Props) => {
         console.log(form.checkValidity());
         console.log(newParticipant);
 
-        
+
         if (form.checkValidity() === false) {
             event.stopPropagation();
+        } else if (props.infos.participants.length >= props.infos.max_participants) {
+            alert('Participants limit reached.');
+        } else if (props.infos.participants.findIndex(participant => participant.email === newParticipant.email) === -1) {
+            store.addParticipant(props.infos.id, newParticipant.name, newParticipant.email);
         } else {
-            // Verify that
-            if(props.infos.participants.findIndex(participant => participant.email === newParticipant.email) === -1) {
-                alert('creating');
-            } else {
-                alert('Email already used in list.');
-            }
+            alert('Email already used in list.');
         }
     }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        switch(e.target.name) {
+        switch (e.target.name) {
             case 'name':
                 setNewParticipant({
                     ...newParticipant,
@@ -69,10 +70,22 @@ const ListInfo: React.FC<Props> = (props: Props) => {
                 <li>Completed: {props.infos.scrambled ? 'Yes' : 'No'}</li>
                 <li>Number of Participants: {props.infos.participants.length} / {props.infos.max_participants}</li>
             </ul>
-            <Button onClick={showAddParticipantModal} variant="outline-secondary" className="mr-2">➕</Button>
-            <Button onClick={() => alert('SCRAMBLEING')} variant="outline-secondary" className="mr-2">🎁</Button>
+            <Button
+                onClick={showAddParticipantModal}
+                variant="outline-secondary"
+                className="mr-2"
+                disabled={props.infos.participants.length >= props.infos.max_participants || props.infos.scrambled}
+            >➕</Button>
+            <Button
+                onClick={() => alert('SCRAMBLEING')}
+                variant="outline-secondary"
+                className="mr-2"
+                disabled={
+                    props.infos.scrambled || props.infos.participants.length < 3
+                }
+            >🎁</Button>
 
-            <Modal show={showModal} onHide={() => {setShowModal(false)}}>
+            <Modal show={showModal} onHide={() => { setShowModal(false) }}>
                 <Modal.Header closeButton>
                     <Modal.Title>Add a new participant</Modal.Title>
                 </Modal.Header>

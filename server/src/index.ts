@@ -84,9 +84,8 @@ app.post('/list/insert/creator', (req, res) => {
 });
 
 app.post('/list/insert/participant', (req, res) => {
-    if(req.body.name && req.body.email) {
+    if(req.body.listId && req.body.name && req.body.email) {
         db.insertListParticipant(Number(req.body.listId), req.body.name, req.body.email).then(result => {
-            // console.log(result);
             res.json(result);
         }).catch(err => {
             console.log(err);
@@ -140,4 +139,30 @@ app.get('/list/associations/:id', (req, res) => {
         console.log(err);
         res.sendStatus(err.code);
     });
+});
+
+app.post('/list/delete/participant', (req, res) => {
+    if(req.body.pId) {
+        db.deleteListParticipant(Number(req.body.pId)).then(result => {
+            res.sendStatus(200);
+        }).catch(err => {
+            console.log(err);
+            res.sendStatus(err.code);
+        });
+    } else {
+        res.sendStatus(400);
+    }
+});
+
+app.post('/list/update/participant', (req, res) => {
+    if(req.body.pId && req.body.name && req.body.email) {
+        db.updateParticipant(Number(req.body.pId), req.body.name, req.body.email).then(result => {
+            res.sendStatus(200);
+        }).catch(err => {
+            console.log(err);
+            res.sendStatus(err.code);
+        });
+    } else {
+        res.sendStatus(400);
+    }
 });
