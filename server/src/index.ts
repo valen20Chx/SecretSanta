@@ -111,6 +111,9 @@ app.post('/list/scramble', (req, res) => {
                         console.error(`Error Occurred`, participant);
                     }
                 });
+
+                promises.push(db.setScrambled(req.body.listId, true));
+
                 Promise.all(promises).then(() => {
                     res.sendStatus(200);
                 }).catch(errors => {

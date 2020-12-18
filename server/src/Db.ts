@@ -183,8 +183,22 @@ export class Db {
 
     updateParticipant(id: number, name: string, email: string) {
         return new Promise((resolve, reject) => {
-            const query = fs.readFileSync(dbFilesDirPath + 'UPDATE_LIST_PARTIOCIPANT.pgsql').toString();
+            const query = fs.readFileSync(dbFilesDirPath + 'UPDATE_LIST_PARTICIPANT.pgsql').toString();
             this.client.query(query, [id, name, email]).then(result => {
+                resolve(result);
+            }).catch(err => {
+                reject({
+                    err: err,
+                    code: 500
+                });
+            });
+        });
+    }
+
+    setScrambled(listId: number, value: boolean) {
+        return new Promise((resolve, reject) => {
+            const query = fs.readFileSync(dbFilesDirPath + 'UPDATE_LIST_SCRAMBLED.pgsql').toString();
+            this.client.query(query, [listId, value]).then(result => {
                 resolve(result);
             }).catch(err => {
                 reject({

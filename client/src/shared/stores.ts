@@ -7,7 +7,8 @@ type ListState = {
     fetchList: (id: number) => void,
     removeParticipant: (id: number) => void,
     addParticipant: (listId: number, name: string, email: string) => void,
-    updateParticipant: (pId: number, name: string, email: string) => void
+    updateParticipant: (pId: number, name: string, email: string) => void,
+    scramble: () => void
 };
 
 const API_HOST = 'http://localhost:5000';
@@ -29,14 +30,9 @@ export const listStore = create<ListState>((set, get) => ({
         Axios.post(`${API_HOST}/list/delete/participant`, {
             pId: id
         }).then(() => {
-            Axios.get(`${API_HOST}/list/${get().list?.id}`).then(res => {
-                set(state => ({ ...state, list: res.data }));
-            }).catch(err => {
-                console.error(err);
-                if (err.response.status === 400) {
-                    console.log('Not Found');
-                }
-            });
+            const listId = get().list?.id;
+            if(listId)
+                get().fetchList(listId);
         }).catch(err => {
             console.error(err);
             if (err.response.status === 400) {
@@ -51,14 +47,7 @@ export const listStore = create<ListState>((set, get) => ({
             name: name,
             email: email
         }).then(() => {
-            Axios.get(`${API_HOST}/list/${listId}`).then(res => {
-                set(state => ({ ...state, list: res.data }));
-            }).catch(err => {
-                console.error(err);
-                if (err.response.status === 400) {
-                    console.log('Not Found');
-                }
-            });
+            get().fetchList(listId);
         }).catch(err => {
             console.error(err);
             if (err.response.status === 400) {
@@ -68,20 +57,31 @@ export const listStore = create<ListState>((set, get) => ({
     },
 
     updateParticipant: (pId: number, name: string, email: string) => {
-        if(get().list?.scrambled) return; // Night remove this one
+        if(get().list?.scrambled) return; // Might remove this one
+        const listId = get().list?.id;
         Axios.post(`${API_HOST}/list/update/participant`, {
             pId: pId,
             name: name,
             email: email
         }).then(() => {
-            Axios.get(`${API_HOST}/list/${get().list?.id}`).then(res => {
-                set(state => ({ ...state, list: res.data }));
-            }).catch(err => {
-                console.error(err);
-                if (err.response.status === 400) {
-                    console.log('Not Found');
-                }
-            });
+            if(listId)
+                get().fetchList(listId);
+        }).catch(err => {
+            console.error(err);
+            if (err.response.status === 400) {
+                console.log('Not Found');
+            }
+        });
+    },
+    
+    scramble: () => {
+        if(get().list?.scrambled) return;
+        const listId = get().list?.id;
+        Axios.post(`${API_HOST}/list/scramble`, {
+            listId: listId
+        }).then(() => {
+            if(listId)
+                get().fetchList(listId);
         }).catch(err => {
             console.error(err);
             if (err.response.status === 400) {

@@ -21,6 +21,7 @@ export class SecretSantaList<T> {
     }
     
     scramble(): void {
+        // console.log('Scrambleing: ', this.participants);
         if(this.completed) return; // To not run again and no infinity loop on case 1 participant
 
         let possibleRecipients = this.participants.slice(); // Clone participents array
@@ -28,7 +29,7 @@ export class SecretSantaList<T> {
         this.StoRassociations = new Map<T, T>();
         this.RtoSassociations = new Map<T, T>();
 
-        this.participants.forEach((participant, index) => { // Gifter
+        this.participants.forEach((participant) => { // Gifter
             while(!this.StoRassociations.has(participant)) {
                 const randIndex = Math.floor(Math.random() * possibleRecipients.length);
                 const randRecipient = possibleRecipients[randIndex];
@@ -46,6 +47,7 @@ export class SecretSantaList<T> {
                 }
             }
         });
+        this.completed = true;
     }
 
     isCompleted(): boolean {

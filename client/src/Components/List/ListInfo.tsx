@@ -12,7 +12,8 @@ interface Props {
 
 const ListInfo: React.FC<Props> = (props: Props) => {
 
-    const [showModal, setShowModal] = useState(false);
+    const [showNewPartModal, setShowNewPartModal] = useState(false);
+    const [showScrambleModal, setShowScrambleModal] = useState(false);
     const [validated,] = useState(false);
     const [newParticipant, setNewParticipant] = useState({
         name: '',
@@ -24,7 +25,7 @@ const ListInfo: React.FC<Props> = (props: Props) => {
         if (props.infos.participants.length >= props.infos.max_participants) {
             alert('Participant limit reached');
         } else {
-            setShowModal(!showModal);
+            setShowNewPartModal(!showNewPartModal);
         }
     }
 
@@ -63,6 +64,10 @@ const ListInfo: React.FC<Props> = (props: Props) => {
         }
     }
 
+    const scramble = () => {
+        store.scramble();
+    }
+
     return (
         <div>
             <ul>
@@ -77,7 +82,7 @@ const ListInfo: React.FC<Props> = (props: Props) => {
                 disabled={props.infos.participants.length >= props.infos.max_participants || props.infos.scrambled}
             >➕</Button>
             <Button
-                onClick={() => alert('SCRAMBLEING')}
+                onClick={() => {setShowScrambleModal(true)}}
                 variant="outline-secondary"
                 className="mr-2"
                 disabled={
@@ -85,7 +90,7 @@ const ListInfo: React.FC<Props> = (props: Props) => {
                 }
             >🎁</Button>
 
-            <Modal show={showModal} onHide={() => { setShowModal(false) }}>
+            <Modal show={showNewPartModal} onHide={() => { setShowNewPartModal(false) }}>
                 <Modal.Header closeButton>
                     <Modal.Title>Add a new participant</Modal.Title>
                 </Modal.Header>
@@ -104,6 +109,17 @@ const ListInfo: React.FC<Props> = (props: Props) => {
                 </Modal.Body>
             </Modal>
 
+
+            <Modal show={showScrambleModal} onHide={() => { setShowScrambleModal(false) }}>
+
+            <Modal.Header closeButton>
+                    <Modal.Title>Scramble List</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <h2>Are you sure about that?</h2>
+                    <Button onClick={scramble}>Yes</Button>
+                </Modal.Body>
+            </Modal>
         </div>
     );
 };
