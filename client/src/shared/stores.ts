@@ -4,11 +4,12 @@ import { IList } from './Interfaces';
 
 type ListState = {
     list: IList | null,
-    fetchList: (id: number) => void,
+    fetchList: (id: number) => Promise<void>,
     removeParticipant: (id: number) => void,
     addParticipant: (listId: number, name: string, email: string) => void,
     updateParticipant: (pId: number, name: string, email: string) => void,
-    scramble: () => void
+    scramble: () => void,
+    createList: (name: string, email: string) => Promise<void>
 };
 
 const API_HOST = 'http://localhost:5000';
@@ -16,7 +17,7 @@ const API_HOST = 'http://localhost:5000';
 export const listStore = create<ListState>((set, get) => ({
     list: null,
     fetchList: (id: number) => {
-        Axios.get(`${API_HOST}/list/${id}`).then(res => {
+        return Axios.get(`${API_HOST}/list/${id}`).then(res => {
             set(state => ({ ...state, list: res.data }));
         }).catch(err => {
             console.error(err);
@@ -78,7 +79,7 @@ export const listStore = create<ListState>((set, get) => ({
         if(get().list?.scrambled) return;
         const listId = get().list?.id;
         Axios.post(`${API_HOST}/list/scramble`, {
-            listId: listId
+            listId: get().list?.id
         }).then(() => {
             if(listId)
                 get().fetchList(listId);
@@ -88,5 +89,26 @@ export const listStore = create<ListState>((set, get) => ({
                 console.log('Not Found');
             }
         });
+    },
+    
+    createList: (name: string, email: string) => {
+        return new Promise((resolve, reject) => {
+            Axios.post(`${API_HOST}/list/create`).then(response => {
+                const newListId = response.data.id;
+                Axios.post(`${API_HOST}/list/insert/creator`, {
+                    name,
+                    email,
+                    listId: newListId
+                }).then(() => {
+                    get().fetchList(newListId).then(() => {
+                        resolve(newListId);
+                    });
+                }).catch(err => {
+                    reject(err);
+                });
+            }).catch(err => {
+                reject(err);
+            });
+        })
     }
 }));

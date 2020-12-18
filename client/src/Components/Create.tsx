@@ -1,5 +1,7 @@
+import { listStore } from '../shared/stores';
 import React, { useState } from 'react';
 import { Button, Col, Container, Form, Row } from 'react-bootstrap';
+import { useHistory } from 'react-router';
 
 const Create: React.FC = () => {
 
@@ -8,19 +10,21 @@ const Create: React.FC = () => {
         name: '',
         email: ''
     });
+    const history = useHistory();
+    const store = listStore();
 
     const [validated,] = useState(false);
 
     const createList = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        alert('CREATING');
         const form = event.currentTarget;
-        console.log(form.checkValidity());
-        console.log(state);
-
         
         if (form.checkValidity() === false) {
             event.stopPropagation();
+        } else {
+            store.createList(state.name, state.email).then((id) => {
+                history.push(`/list/${id}`);
+            });
         }
     }
 

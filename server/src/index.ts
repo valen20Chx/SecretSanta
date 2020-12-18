@@ -70,7 +70,7 @@ app.post('/list/create', (req, res) => {
 });
 
 app.post('/list/insert/creator', (req, res) => {
-    if(req.body.name && req.body.email) {
+    if(req.body.name && req.body.email && req.body.listId) {
         db.insertListCreator(Number(req.body.listId), req.body.name, req.body.email).then(result => {
             // console.log(result);
             res.json(result);
