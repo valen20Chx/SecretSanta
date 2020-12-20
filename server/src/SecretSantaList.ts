@@ -21,31 +21,21 @@ export class SecretSantaList<T> {
     }
     
     scramble(): void {
-        // console.log('Scrambleing: ', this.participants);
         if(this.completed) return; // To not run again and no infinity loop on case 1 participant
-
-        let possibleRecipients = this.participants.slice(); // Clone participents array
     
         this.StoRassociations = new Map<T, T>();
         this.RtoSassociations = new Map<T, T>();
 
-        this.participants.forEach((participant) => { // Gifter
-            while(!this.StoRassociations.has(participant)) {
-                const randIndex = Math.floor(Math.random() * possibleRecipients.length);
-                const randRecipient = possibleRecipients[randIndex];
-                
-                // TODO : Triangle method (last 3 exchange to avoid that the last is alone)
-                if(possibleRecipients.length == 1 && possibleRecipients[0] == participant) { // Check if case where last is alone
-                    this.scramble();
-                    return;
-                }
-        
-                if(randRecipient != participant) {
-                    this.StoRassociations.set(participant, randRecipient);
-                    this.RtoSassociations.set(randRecipient, participant);
-                    possibleRecipients.splice(randIndex, 1);
-                }
-            }
+        const randArr = shuffleArray(this.participants);
+
+        const shift = Math.floor(Math.random() * randArr.length);
+
+        randArr.forEach((participant, index) => { // Gifter
+
+            const nextParticipant = randArr[(index + shift) % randArr.length];
+
+            this.StoRassociations.set(participant, nextParticipant);
+            this.RtoSassociations.set(nextParticipant, participant);
         });
         this.completed = true;
     }
@@ -61,4 +51,18 @@ export class SecretSantaList<T> {
     getRecipient(santa: T) {
         return this.StoRassociations.get(santa);
     }
+}
+
+function shuffleArray<T>(arr: Array<T>): Array<T> {
+    let cpyArr = arr.slice();
+    for(let index = 0; index < cpyArr.length; index++) {
+        let randIndx = Math.floor(Math.random() * cpyArr.length - 1);
+        if(randIndx >= index)
+            randIndx++;
+        // Swap a <-> b
+        let tempEle = cpyArr[index];
+        cpyArr[index] = cpyArr[randIndx];
+        cpyArr[randIndx] = tempEle;
+    }
+    return cpyArr;
 }
