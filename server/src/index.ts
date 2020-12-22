@@ -10,12 +10,20 @@ import { Db } from './Db';
 import { SecretSantaList } from './SecretSantaList';
 import {Participant} from './Interfaces';
 
+// DOTENV
+import {config} from 'dotenv';
+config();
+
 const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
 // TODO: Change config input method (secret json or env var)
-const db = new Db('secret-santa-admin', 'localhost', 'secret-santa', 'secretsantapassword', 5432);
+const db = new Db(<string>process.env.DB_USERNAME,
+    <string>process.env.DB_HOST,
+    <string>process.env.DB_DBNAME,
+    <string>process.env.DB_PASSWORD,
+    Number(process.env.DB_PORT));
 
 app.use((req, res, next) => {
 
