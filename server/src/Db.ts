@@ -19,9 +19,12 @@ export class Db {
         this.config = {user, host, database, password, port};
         this.connected = false;
         this.client = new pg.Client(this.config);
-        
         this.connect();
+    }
 
+    setup() {
+        this.client = new pg.Client(this.config);
+        
         this.client.on('end', () => {
             console.error('❗ Disconnected from DB, retrying...');
             this.connect();
@@ -29,6 +32,7 @@ export class Db {
     }
 
     connect() {
+        this.setup();
         this.client.connect().then(() => {
             console.log('Connection to DB established 🔗');
             this.connected = true;

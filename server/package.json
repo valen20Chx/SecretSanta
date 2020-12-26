@@ -5,7 +5,7 @@
   "main": "./bin/index.js",
   "scripts": {
     "tsc": "tsc",
-    "start": "npm run tsc && npm run start",
+    "start": "npm run tsc && npm run fstart",
     "fstart": "node ./bin/index.js",
     "devstart": "npm run tsc && npm run devfstart",
     "devfstart": "nodemon --watch 'src/*' ./bin/index.js"
