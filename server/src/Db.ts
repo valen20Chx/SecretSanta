@@ -1,215 +1,214 @@
-import pg from 'pg';
-import fs from 'fs';
-import {Participant, List} from './Interfaces';
+import { DataTypes, Sequelize, Model } from "sequelize";
 
-const dbFilesDirPath = './db/';
+import { SecretSantaList } from "./SecretSantaList";
 
-// interface DB_Error {
-//     err: any | null,
-//     msg: string,
-//     code: number
-// };
+const sequelize = new Sequelize(
+  <string>process.env.DB_DBNAME,
+  <string>process.env.DB_USERNAME,
+  <string>process.env.DB_PASSWORD,
+  {
+    host: <string>process.env.DB_HOST,
+		dialect: "postgres",
+		logging: () => {}
+  }
+);
 
-export class Db {
-    config: Object;
-    connected: boolean;
-    client: pg.Client;
+// ----- Classes -----
 
-    constructor(user: string, host: string, database: string, password: string, port: number) {
-        this.config = {user, host, database, password, port};
-        this.connected = false;
-        this.client = new pg.Client(this.config);
-        this.connect();
+export class List extends Model {
+  public readonly id!: number;
+  public readonly max_participants!: number;
+  public readonly scrambled!: boolean;
+  public readonly date_created!: Date;
+
+  async scramble() {
+    try {
+      const participants = await this.getParticipants();
+      if (participants.length < 3) { // List too short
+        throw new Error(
+          "The list is too short, it must be of length 3 at least"
+        );
+      } else {
+				const secretSantaList = new SecretSantaList<Participant>(participants);
+				secretSantaList.scramble();
+				if(secretSantaList.isCompleted()) {
+					await Promise.all(participants.map(participant => Association.create({gifter_id: participant.id, receiver_id: secretSantaList.getRecipient(participant)?.id})));
+					return this.update({scrambled: true});
+				}
+      }
+    } catch (err) {
+			throw err;
+		}
+  }
+
+  async getParticipants() {
+    try {
+      return await Participant.findAll({ where: { list_id: this.id } });
+    } catch (err) {
+      throw err;
     }
+  }
 
-    setup() {
-        this.client = new pg.Client(this.config);
-        
-        this.client.on('end', () => {
-            console.error('❗ Disconnected from DB, retrying...');
-            this.connect();
-        });
+  async getAssociations() {
+    try {
+      const participants = await this.getParticipants();
+      return await Association.findAll({
+        where: { gifter_id: participants.map((participant) => participant.id) },
+      });
+    } catch (err) {
+      throw err;
     }
+  }
+}
 
-    connect() {
-        this.setup();
-        this.client.connect().then(() => {
-            console.log('Connection to DB established 🔗');
-            this.connected = true;
-            this.client.query(fs.readFileSync(dbFilesDirPath + 'CREATE_TABLES.pgsql').toString()).then(result => {
-                // console.log(result);
-            }).catch(err => {
-                console.error(err);
-            });
-        }).catch(err => {
-            console.error('❗ pg connection error', err.stack);
-            console.error('Retrying in 10 sec 🕛');
-            this.connected = false;
-    
-            // Recursive call ➰ delayed by 10 seconds
-            setTimeout(this.connect, 1000 * 10);
-        });
+export class Participant extends Model {
+  public readonly id!: number;
+  public email!: string;
+  public name!: string;
+  public readonly date_added!: Date;
+  public readonly creator!: boolean;
+  public readonly list_id!: number;
+
+  async associate(receiver: Participant) {
+    try {
+      return Association.create({
+        gifter_id: this.id,
+        receiver_id: receiver.id,
+      });
+    } catch (err) {
+      throw err;
     }
+  }
+}
 
-    getList(id: number) {
-        const query1 = fs.readFileSync(dbFilesDirPath + 'GET_LIST.pgsql').toString();
-        const query2 = fs.readFileSync(dbFilesDirPath + 'GET_LIST_PARTICIPANTS.pgsql').toString();
-        const query3 = fs.readFileSync(dbFilesDirPath + 'GET_LIST_ASSOCIATIONS.pgsql').toString();
-        return new Promise<List>((resolve, reject) => {
-            this.client.query(query1, [id]).then(q1Res => {
-                if(q1Res.rowCount == 0) { // List Not Existant
-                    reject({
-                        msg: 'list is innexistant',
-                        code: 400
-                    });
-                } else {
-                    Promise.all([this.client.query(query2, [id]), this.client.query(query3, [id])]).then(results => {
-                        let list_data : List = q1Res.rows[0];
-                        list_data.participants = results[0].rows;
-                        list_data.associations = results[1].rows;
-                        resolve(list_data);
-                    }).catch(errors => {
-                        reject({
-                            err: errors,
-                            code: 500
-                        });
-                    });
-                }
-            });
-        });
-    }
+export class Association extends Model {
+  public readonly id!: number;
+  public readonly gifter_id!: number;
+  public readonly receiver_id!: number;
+  public readonly date_created!: Date;
+}
 
-    createList(max_participants: number = 8) {
-        const query = fs.readFileSync(dbFilesDirPath + 'INSERT_LIST.pgsql').toString();
-        return new Promise((resolve, reject) => {
-            this.client.query(query, [max_participants]).then(result => {
-                resolve(result.rows[0]);
-            }).catch(errors => {
-                reject({
-                    err: errors,
-                    code: 500
-                });
-            });
-        });
-    }
+// ----- Models -----
 
-    insertListCreator(listId: number, name: string, email: string) {
-        const query = fs.readFileSync(dbFilesDirPath + 'INSERT_LIST_CREATOR.pgsql').toString();
-        return new Promise((resolve, reject) => {
-            this.client.query(query, [listId, name, email]).then(result => {
-                resolve(result.rows[0]);
-            }).catch(errors => {
-                reject({
-                    err: errors,
-                    code: 500
-                });
-            });
-        });
-    }
+List.init(
+  {
+    id: {
+      unique: true,
+      allowNull: false,
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    max_participants: {
+      allowNull: false,
+      type: DataTypes.INTEGER,
+      defaultValue: 8,
+    },
+    scrambled: {
+      allowNull: false,
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    date_created: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+  },
+  {
+    sequelize: sequelize,
+    tableName: "list",
+    timestamps: false,
+  }
+);
 
-    insertListParticipant(listId: number, name: string, email: string) {
-        return new Promise((resolve, reject) => {
+Participant.init(
+  {
+    id: {
+      unique: true,
+      allowNull: false,
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    email: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+    },
+    name: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+    },
+    date_added: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+    creator: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    list_id: {
+      allowNull: false,
+      type: DataTypes.INTEGER,
+      references: {
+        model: List,
+        key: "id",
+      },
+    },
+  },
+  {
+    sequelize: sequelize,
+    tableName: "participant",
+    timestamps: false,
+  }
+);
 
-            this.getList(listId).then(result => {
-                if(result.participants.length >= result.max_participants) {
-                    reject({
-                        msg: 'Participants limit reached',
-                        code: 500
-                    });
-                } else {
-                    const query = fs.readFileSync(dbFilesDirPath + 'INSERT_LIST_PARTICIPANT.pgsql').toString();
-                    this.client.query(query, [listId, name, email]).then(result => {
-                        resolve(result.rows[0]);
-                    }).catch(errors => {
-                        reject({
-                            err: errors,
-                            code: 500
-                        });
-                    });
-                }
-            }).catch(err => {
-                reject({
-                    err: err,
-                    code: 500
-                });
-            });
-        });
-    }
+Association.init(
+  {
+    id: {
+      unique: true,
+      allowNull: false,
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    gifter_id: {
+      allowNull: false,
+      type: DataTypes.INTEGER,
+      references: {
+        model: Participant,
+        key: "id",
+      },
+    },
+    receiver_id: {
+      allowNull: false,
+      type: DataTypes.INTEGER,
+      references: {
+        model: Participant,
+        key: "id",
+      },
+    },
+    date_created: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+  },
+  {
+    sequelize: sequelize,
+    tableName: "association",
+    timestamps: false,
+  }
+);
 
-    insertAssociation(gifter_id: number, receiver_id: number) {
-        return new Promise((resolve, reject) => {
-            const query = fs.readFileSync(dbFilesDirPath + 'INSERT_ASSOCIATION.pgsql').toString();
-            this.client.query(query, [gifter_id, receiver_id]).then(result =>{
-                resolve(null);
-            }).catch(err => {
-                reject({
-                    err: err,
-                    code: 500
-                });
-            });
-        });
-    }
-
-    getAssociations(listId: number) {
-        return new Promise((resolve, reject) => {
-            const query = fs.readFileSync(dbFilesDirPath + 'GET_LIST_ASSOCIATIONS.pgsql').toString();
-            this.client.query(query, [listId]).then(result => {
-                if(result.rowCount == 0) {
-                    reject({
-                        msg: 'No associations found',
-                        code: 400
-                    });
-                } else {
-                    resolve(result.rows);
-                }
-            }).catch(err => {
-                reject({
-                    err: err,
-                    code: 500
-                });
-            });
-        });
-    }
-
-    deleteListParticipant(pId: number) {
-        return new Promise((resolve, reject) => {
-            const query = fs.readFileSync(dbFilesDirPath + 'REMOVE_LIST_PARTICIPANT.pgsql').toString();
-            this.client.query(query, [pId]).then(result => {
-                resolve(result);
-            }).catch(err => {
-                reject({
-                    err: err,
-                    code: 500
-                });
-            });
-        });
-    }
-
-    updateParticipant(id: number, name: string, email: string) {
-        return new Promise((resolve, reject) => {
-            const query = fs.readFileSync(dbFilesDirPath + 'UPDATE_LIST_PARTICIPANT.pgsql').toString();
-            this.client.query(query, [id, name, email]).then(result => {
-                resolve(result);
-            }).catch(err => {
-                reject({
-                    err: err,
-                    code: 500
-                });
-            });
-        });
-    }
-
-    setScrambled(listId: number, value: boolean) {
-        return new Promise((resolve, reject) => {
-            const query = fs.readFileSync(dbFilesDirPath + 'UPDATE_LIST_SCRAMBLED.pgsql').toString();
-            this.client.query(query, [listId, value]).then(result => {
-                resolve(result);
-            }).catch(err => {
-                reject({
-                    err: err,
-                    code: 500
-                });
-            });
-        });
-    }
-};
+// Sync the models
+sequelize
+  .sync({ alter: true })
+  .then(() => {
+    console.log(`Sequelize synced successfully! 🖇`);
+  })
+  .catch((err) => {
+    console.error(`Error while trying to sync sequelize. ❕`, err);
+  });

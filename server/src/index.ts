@@ -1,41 +1,25 @@
+// DOTENV
+import {config} from 'dotenv';
+config();
+
 // Express
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 
 // Custom Tool Modules
-import { Db } from './Db';
-
-// Classes and Interfaces
-import { SecretSantaList } from './SecretSantaList';
-import {Participant} from './Interfaces';
-
-// DOTENV
-import {config} from 'dotenv';
-config();
+import {List, Participant, Association} from './Db';
 
 const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
-// TODO: Change config input method (secret json or env var)
-const db = new Db(<string>process.env.DB_USERNAME,
-    <string>process.env.DB_HOST,
-    <string>process.env.DB_DBNAME,
-    <string>process.env.DB_PASSWORD,
-    Number(process.env.DB_PORT));
-
 app.use((req, res, next) => {
 
     // LOG THE REQUEST
     console.log(new Date(Date.now()).toISOString(), req.method, req.path, req.ip);
-
-    if(!db.connected) {
-        console.log(`❗ Request cant be completed, DB connection not established.`);
-        res.sendStatus(500);
-    } else {
-        next();
-    }
+    
+    next();
 });
 
 const PORT = process.env.PORT || 5000;
@@ -44,135 +28,121 @@ app.listen(PORT, () => {
     console.log(`Listening on port ${PORT} ⚙️`);
 });
 
-// Add a participant
-app.post('/add/', (req, res) => {
-    if(req.body.name && req.body.email) { // User inputs correct
-        let {name, email} = req.body; 
-        console.log(`New participant: `, {name, email});
-        res.sendStatus(200);
-    } else {
-        res.sendStatus(404);
-    }
-});
-
-app.get('/list/:id', (req, res) => {
-    db.getList(Number(req.params.id)).then(result => {
-        // console.log(result);
-        res.json(result);
-    }).catch(err => {
+app.get('/list/:id', async (req, res) => {
+    try {
+        const list = (await List.findByPk(req.params.id));
+        const list_data = {
+            ...(await list?.toJSON()),
+            participants: (await list?.getParticipants())?.map(participant => participant.toJSON())
+        };
+        res.json(list_data);
+        return;
+    } catch(err) {
         console.log(err);
-        res.sendStatus(err.code);
-    });
+        res.sendStatus(500);
+        return;
+    };
 });
 
-const DEFAULT_LIST_SIZE = 8;
+app.post('/list/create', async (req, res) => {
+    try {
+        const list = await List.create({max_participants: Number(req.body.max_size)});
+        res.json(list.toJSON());
 
-app.post('/list/create', (req, res) => {
-    db.createList(Number(req.body.max_size || DEFAULT_LIST_SIZE)).then(result => {
-        // console.log(result);
-        res.json(result);
-    }).catch(err => {
+    } catch(err) {
         console.log(err);
-        res.sendStatus(err.code);
-    });
+        res.sendStatus(500);
+    };
 });
 
-app.post('/list/insert/creator', (req, res) => {
-    if(req.body.name && req.body.email && req.body.listId) {
-        db.insertListCreator(Number(req.body.listId), req.body.name, req.body.email).then(result => {
-            // console.log(result);
-            res.json(result);
-        }).catch(err => {
-            console.log(err);
-            res.sendStatus(err.code);
-        });
-    } else {
-        res.sendStatus(400);
-    }
-});
-
-app.post('/list/insert/participant', (req, res) => {
+app.post('/list/insert/creator', async (req, res) => {
     if(req.body.listId && req.body.name && req.body.email) {
-        db.insertListParticipant(Number(req.body.listId), req.body.name, req.body.email).then(result => {
-            res.json(result);
-        }).catch(err => {
+        try {
+            const createdParticipant = await Participant.create({
+                list_id: Number(req.body.listId),
+                name: req.body.name,
+                email: req.body.email,
+                creator: true
+            });
+            res.json(createdParticipant.toJSON());
+        } catch (err) {
             console.log(err);
-            res.sendStatus(err.code);
-        });
+            res.sendStatus(500);
+        }
     } else {
         res.sendStatus(400);
     }
 });
 
-app.post('/list/scramble', (req, res) => {
+app.post('/list/insert/participant', async (req, res) => {
+    if(req.body.listId && req.body.name && req.body.email) {
+        try {
+            const createdParticipant = await Participant.create({
+                list_id: Number(req.body.listId),
+                name: req.body.name,
+                email: req.body.email
+            });
+            res.json(createdParticipant.toJSON());
+        } catch (err) {
+            console.log(err);
+            res.sendStatus(500);
+        }
+    } else {
+        res.sendStatus(400);
+    }
+});
+
+app.post('/list/scramble', async (req, res) => {
     if(req.body.listId) {
-        db.getList(Number(req.body.listId)).then(list => {
-            const sList = new SecretSantaList<Participant>(list.participants);
-            sList.scramble();
-            if(sList.completed) { // scramble was successful
-                let promises = new Array<Promise<any>>();
-                list.participants.forEach(participant => {
-                    const receiver = sList.getRecipient(participant);
-                    if(receiver) {
-                        promises.push(db.insertAssociation(participant.id, receiver.id || 0));
-                    } else {
-                        console.error(`Error Occurred`, participant);
-                    }
-                });
-
-                promises.push(db.setScrambled(req.body.listId, true));
-
-                Promise.all(promises).then(() => {
-                    res.sendStatus(200);
-                }).catch(errors => {
-                    console.error(errors);
-                    res.status(500).json({
-                        msg: 'Error while trying to create the associations'
-                    });
-                });
-            } else {
-                res.status(500).json({
-                    msg: 'Error scrambling the list'
-                });
-            }
-        }).catch(err => {
+        try {
+            await (await List.findByPk(req.body.listId))?.scramble();
+            res.sendStatus(200);
+        } catch(err) {
             res.status(500).json(err);
-        });
+        }
     } else {
         res.sendStatus(400);
     }
 });
 
-app.get('/list/associations/:id', (req, res) => {
-    db.getAssociations(Number(req.params.id)).then(result => {
-        res.json(result);
-    }).catch(err => {
+app.get('/list/associations/:id', async (req, res) => {
+
+    try {
+        const associations = await (await List.findByPk(req.params.id))?.getAssociations();
+        res.json(associations?.map(association => association.toJSON()));
+    } catch(err) {
         console.log(err);
-        res.sendStatus(err.code);
-    });
+        res.sendStatus(500);
+    }
 });
 
-app.post('/list/delete/participant', (req, res) => {
+app.post('/list/delete/participant', async (req, res) => {
     if(req.body.pId) {
-        db.deleteListParticipant(Number(req.body.pId)).then(result => {
+        try {
+            await Participant.destroy({where: {
+                id: req.body.pId
+            }});
             res.sendStatus(200);
-        }).catch(err => {
-            console.log(err);
-            res.sendStatus(err.code);
-        });
+        } catch (err) {
+            console.error(err);
+            res.sendStatus(500);
+        }
     } else {
         res.sendStatus(400);
     }
 });
 
-app.post('/list/update/participant', (req, res) => {
+app.post('/list/update/participant', async (req, res) => {
     if(req.body.pId && req.body.name && req.body.email) {
-        db.updateParticipant(Number(req.body.pId), req.body.name, req.body.email).then(result => {
+        try {
+            await (await Participant.findByPk(Number(req.body.pId)))
+                ?.update({name: req.body.name, email: req.body.email});
             res.sendStatus(200);
-        }).catch(err => {
+        } catch(err) {
             console.log(err);
-            res.sendStatus(err.code);
-        });
+            res.sendStatus(500);
+            return;
+        }
     } else {
         res.sendStatus(400);
     }
