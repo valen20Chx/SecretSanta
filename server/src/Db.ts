@@ -29,9 +29,10 @@ export class List extends Model {
           "The list is too short, it must be of length 3 at least"
         );
       } else {
-				const secretSantaList = new SecretSantaList<Participant>(participants);
+        const secretSantaList = new SecretSantaList<Participant>(participants);
 				secretSantaList.scramble();
 				if(secretSantaList.isCompleted()) {
+          console.log(participants.map(participant => ({gifter_id: participant.id, receiver_id: secretSantaList.getRecipient(participant)?.id})));
 					await Promise.all(participants.map(participant => Association.create({gifter_id: participant.id, receiver_id: secretSantaList.getRecipient(participant)?.id})));
 					return this.update({scrambled: true});
 				}

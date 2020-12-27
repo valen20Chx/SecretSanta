@@ -8,7 +8,7 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 
 // Custom Tool Modules
-import {List, Participant, Association} from './Db';
+import {List, Participant} from './Db';
 
 const app = express();
 app.use(bodyParser.json());
@@ -28,30 +28,35 @@ app.listen(PORT, () => {
     console.log(`Listening on port ${PORT} ⚙️`);
 });
 
+// ----- Routes -----
+
+// Fetches the list data: 
 app.get('/list/:id', async (req, res) => {
     try {
         const list = (await List.findByPk(req.params.id));
         const list_data = {
             ...(await list?.toJSON()),
-            participants: (await list?.getParticipants())?.map(participant => participant.toJSON())
+            participants: (await list?.getParticipants())?.map(participant => participant.toJSON()),
+            associations: (await list?.getAssociations())?.map(association => association.toJSON())
         };
         res.json(list_data);
         return;
     } catch(err) {
         console.log(err);
-        res.sendStatus(500);
+        res.status(500).json(err);
         return;
     };
 });
 
 app.post('/list/create', async (req, res) => {
     try {
-        const list = await List.create({max_participants: Number(req.body.max_size)});
+        const DEFAULT_MAX_PARTICIPANTS = 8;
+        const list = await List.create({max_participants: Number(req.body.max_size) || DEFAULT_MAX_PARTICIPANTS});
         res.json(list.toJSON());
 
     } catch(err) {
         console.log(err);
-        res.sendStatus(500);
+        res.status(500).json(err);
     };
 });
 
@@ -67,7 +72,7 @@ app.post('/list/insert/creator', async (req, res) => {
             res.json(createdParticipant.toJSON());
         } catch (err) {
             console.log(err);
-            res.sendStatus(500);
+            res.status(500).json(err);
         }
     } else {
         res.sendStatus(400);
@@ -85,7 +90,7 @@ app.post('/list/insert/participant', async (req, res) => {
             res.json(createdParticipant.toJSON());
         } catch (err) {
             console.log(err);
-            res.sendStatus(500);
+            res.status(500).json(err);
         }
     } else {
         res.sendStatus(400);
@@ -106,26 +111,23 @@ app.post('/list/scramble', async (req, res) => {
 });
 
 app.get('/list/associations/:id', async (req, res) => {
-
     try {
         const associations = await (await List.findByPk(req.params.id))?.getAssociations();
         res.json(associations?.map(association => association.toJSON()));
     } catch(err) {
         console.log(err);
-        res.sendStatus(500);
+        res.status(500).json(err);
     }
 });
 
 app.post('/list/delete/participant', async (req, res) => {
     if(req.body.pId) {
         try {
-            await Participant.destroy({where: {
-                id: req.body.pId
-            }});
+            await (await Participant.findByPk(req.body.pId))?.destroy();
             res.sendStatus(200);
         } catch (err) {
             console.error(err);
-            res.sendStatus(500);
+            res.status(500).json(err);
         }
     } else {
         res.sendStatus(400);
@@ -140,7 +142,7 @@ app.post('/list/update/participant', async (req, res) => {
             res.sendStatus(200);
         } catch(err) {
             console.log(err);
-            res.sendStatus(500);
+            res.status(500).json(err);
             return;
         }
     } else {
